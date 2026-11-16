@@ -1,0 +1,53 @@
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.orm import declarative_base, Session
+from pydantic import BaseModel
+
+DATABASE_URL = "postgresql://postgres.glzwofbvgjzbaiqwpgrn:b8zQRQxKfqThqFZh
+@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
+
+engine = create_engine(DATABASE_URL)
+Base = declarative_base()
+
+# 테이블 모델(테이블 이름을 users)
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, index=True)
+    email = Column(String(120))
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+
+# 테이블이 없으면 생성
+Base.metadata.create_all(bind=engine)
+
+# 요청마다 세션을 열고, 끝나면 닫는 함수
+def get_db():
+    db = Session(bind=engine)
+    try: 
+        yield db
+    finally:
+        db.close()
+
+app = FastAPI()
+
+@app.post("/users")
+def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    new_user = User(username=user.username, email=user.email)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {
+        "ok": "true",
+        "id": new_user.id, 
+        "username": new_user.username,
+        "email": new_user.email
+    }
+
+@app.get("/")
+def read_home():
+    return {
+        "hello" : "world"
+    }
