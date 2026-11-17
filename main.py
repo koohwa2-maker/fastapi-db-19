@@ -3,8 +3,7 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import declarative_base, Session
 from pydantic import BaseModel
 
-DATABASE_URL = "postgresql://postgres.glzwofbvgjzbaiqwpgrn:b8zQRQxKfqThqFZh
-@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
+DATABASE_URL = "postgresql://postgres.glzwofbvgjzbaiqwpgrn:yscmZQkl5OlqQHqI@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
 
 engine = create_engine(DATABASE_URL)
 Base = declarative_base()
@@ -33,6 +32,7 @@ def get_db():
 
 app = FastAPI()
 
+# C:Create 회원가입
 @app.post("/users")
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     new_user = User(username=user.username, email=user.email)
@@ -46,6 +46,63 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         "email": new_user.email
     }
 
+# R:Read 가입한 정보 불러오기(전체조회)
+@app.get("/users")
+def read_users(db: Session=Depends(get_db)):
+    users = db.query(User).all()
+    return [
+        {
+            "id": user.id, 
+            "username": user.username, 
+            "email": user.email
+        } for user in users
+    ]
+
+# R:Read 하나 조회
+@app.get("/users/{user_id}")
+def read_user(user_id: int, db: Session=Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None: 
+        return HTTPException(status_code=404, deatal="사용자가 없습니다.")
+    return {
+        "id": user.id, 
+        "username" : user.username, 
+        "email": user.email
+    }
+
+# U:Update => 수정
+@app.put("/users/{user_id}")
+def update_user(user_id: int, data: UserCreate,  db: Session=Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None: 
+        return HTTPException(status_code=404, deatal="사용자가 없습니다.")
+
+    user.username = data.username
+    user.email = data.email
+
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "id": user.id,
+        "username": user.username, 
+        "email": user.email
+    }
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id:int,  db: Session=Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        return HTTPException(status_code=404, deatal="사용자가 없습니다.")
+
+    db.delete(user)
+    db.commit()
+
+    return {
+        "message": "삭제완료"
+    }
+
+ 
 @app.get("/")
 def read_home():
     return {
